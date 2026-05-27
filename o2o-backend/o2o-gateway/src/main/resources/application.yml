@@ -37,3 +37,11 @@ spring:
             - Path=/api/trade/**
           filters:
             - StripPrefix=1
+
+        # 购物车微服务路由
+        - id: cart-service-route
+          uri: lb://o2o-cart-service
+          predicates:
+            - Path=/api/cart/**
+          filters:
+            - StripPrefix=1

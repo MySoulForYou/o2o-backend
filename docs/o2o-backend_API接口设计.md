@@ -78,9 +78,26 @@
     ]
     ```
 
-### 4. 添加购物车 (需登录，Redis Hash 存储)
+### 4. 获取当前登录用户信息 (需登录)
+*   **请求方式**：`GET`
+*   **请求路径**：`/api/user/info`
+*   **返回数据 (`data`)**：
+    ```json
+    {
+      "id": 1,
+      "username": "zhangsan",
+      "nickname": "张三",
+      "avatar": "http://example.com/avatar.png"
+    }
+    ```
+
+---
+
+## 🛒 二、 购物车微服务 (`cart-service`)
+
+### 1. 添加购物车 (需登录，Redis Hash + MySQL 双写存储)
 *   **请求方式**：`POST`
-*   **请求路径**：`/api/user/cart/add`
+*   **请求路径**：`/api/cart/add`
 *   **请求参数 (Body JSON)**：
     ```json
     {
@@ -90,9 +107,9 @@
     ```
 *   **返回数据 (`data`)**：`null`
 
-### 5. 查询购物车列表 (需登录)
+### 2. 查询购物车列表 (需登录)
 *   **请求方式**：`GET`
-*   **请求路径**：`/api/user/cart/list`
+*   **请求路径**：`/api/cart/list`
 *   **返回数据 (`data` 数组)**：
     ```json
     [
@@ -108,7 +125,7 @@
 
 ---
 
-## 🏪 二、 店铺与商品微服务 (`shop-service`)
+## 🏪 三、 店铺与商品微服务 (`shop-service`)
 
 ### 1. 检索附近店铺 (LBS 定位)
 *   **请求方式**：`GET`
@@ -165,7 +182,7 @@
 
 ---
 
-## 🛍️ 三、 交易与秒杀微服务 (`trade-service`)
+## 🛍️ 四、 交易与秒杀微服务 (`trade-service`)
 
 ### 1. 提交普通订单 (需登录)
 *   **请求方式**：`POST`

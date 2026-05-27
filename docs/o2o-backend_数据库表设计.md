@@ -18,7 +18,35 @@ erDiagram
 
 ---
 
-## 🗄️ 二、 建表 SQL 语句与字段说明
+## 🔑 二、 全局数据库索引设计与作用说明
+
+为保障微服务的高并发检索性能，并从底层拦截非法重复请求（如并发注册、重复加购），本项目在各服务隔离库表中配置了多维度索引体系。
+
+### 1. 联合唯一索引 (Composite Unique Index)
+*   **购物车表 (`tb_cart`)**：`idx_user_goods` (`user_id`, `goods_id`)
+    *   **业务功能**：绑定“用户ID”与“商品ID”的联合唯一组合约束。
+    *   **设计作用**：从物理层确保**“一个用户对同一件商品在购物车中仅有一条记录”**。当用户重复加购时，由该索引拦截并触发业务层 `ON DUPLICATE KEY UPDATE`（或代码累加逻辑），直接执行数量上的 `quantity = quantity + count` 累加，杜绝数据冗余。
+
+### 2. 单列唯一索引 (Unique Index)
+*   **用户表 (`tb_user`)**：`idx_username` (`username`)
+    *   **设计作用**：强制保障系统用户名登录主键级唯一，防止登录重名错乱。
+*   **用户表 (`tb_user`)**：`idx_phone` (`phone`)
+    *   **设计作用**：强制保障用户绑定手机号全局唯一，是防范同一手机号多次注册刷券套利的基础风控设施。
+*   **秒杀配置表 (`tb_seckill_goods`)**：`idx_goods_id` (`goods_id`)
+    *   **设计作用**：确保一个商品在同一秒杀时间段内仅有一套活动规则，防止同一商品被并发配置多个秒杀价格。
+
+### 3. 单列普通检索索引 (Normal Index)
+针对频繁出现在 `WHERE` 过滤、`JOIN` 关联或 `ORDER BY` 排序场景中的外键/分类字段，建立单列索引以规避全表扫描，显著缩短响应延迟：
+*   **地址表 (`tb_address`)**：`idx_user_id` (`user_id`) —— 加速用户加载个人收货地址簿。
+*   **店铺表 (`tb_shop`)**：`idx_category` (`category`) —— 提高同城首页按分类筛选店铺的相应速度。
+*   **商品表 (`tb_goods`)**：`idx_shop_id` (`shop_id`) —— 加速店铺详情页商品陈列的展示。
+*   **评价表 (`tb_review`)**：`idx_shop_id` (`shop_id`) —— 支持店铺评分及汇总的高频聚合计算。
+*   **订单表 (`tb_order`)**：`idx_user_id` (`user_id`) 与 `idx_shop_id` (`shop_id`) —— 支撑买家与商家订单列表的分页高速查询。
+*   **订单明细表 (`tb_order_item`)**：`idx_order_id` (`order_id`) —— 支持订单详情查询时的一对多高速联表展示。
+
+---
+
+## 🗄️ 三、 建表 SQL 语句与字段说明
 
 ---
 
@@ -47,7 +75,8 @@ CREATE TABLE `tb_user` (
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建/注册时间',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后修改时间',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `idx_username` (`username`)
+  UNIQUE KEY `idx_username` (`username`),
+  UNIQUE KEY `idx_phone` (`phone`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户基础表';
 ```
 
@@ -214,4 +243,31 @@ CREATE TABLE `tb_seckill_goods` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_goods_id` (`goods_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='秒杀商品活动配置表';
+```
+
+---
+
+### 4. 购物车微服务数据库 (`o2o_cart_db`)
+
+```sql
+CREATE DATABASE IF NOT EXISTS `o2o_cart_db` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `o2o_cart_db`;
+```
+
+#### 4.1 购物车表 (`tb_cart`)
+保存用户购物车暂存数据。
+
+```sql
+DROP TABLE IF EXISTS `tb_cart`;
+CREATE TABLE `tb_cart` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `user_id` bigint NOT NULL COMMENT '用户ID',
+  `goods_id` bigint NOT NULL COMMENT '商品ID',
+  `quantity` int NOT NULL DEFAULT '1' COMMENT '加购数量',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_user_goods` (`user_id`, `goods_id`) -- 联合唯一索引，确保一个用户对一个商品只有一条记录
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='购物车持久化表';
+```
 ```

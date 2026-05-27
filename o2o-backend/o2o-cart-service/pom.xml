@@ -9,9 +9,9 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>o2o-user-service</artifactId>
-    <name>o2o-user-service</name>
-    <description>用户微服务模块</description>
+    <artifactId>o2o-cart-service</artifactId>
+    <name>o2o-cart-service</name>
+    <description>购物车独立的微服务模块</description>
 
     <dependencies>
         <!-- 依赖共享远程接口与DTO包 -->
@@ -46,16 +46,10 @@
             <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
         </dependency>
 
-        <!-- Redis Starter 用于缓存和购物车 -->
+        <!-- Redis Starter 用于高并发购物车操作 (Hash结构) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
-        </dependency>
-
-        <!-- Spring Security Crypto 用于 BCrypt 密码加密 -->
-        <dependency>
-            <groupId>org.springframework.security</groupId>
-            <artifactId>spring-security-crypto</artifactId>
         </dependency>
 
         <!-- Springdoc OpenAPI Starter 用于自动生成接口文档 -->

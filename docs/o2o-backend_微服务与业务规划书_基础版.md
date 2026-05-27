@@ -31,7 +31,8 @@ o2o-backend (父工程：负责锁定全项目依赖版本，不写业务代码)
  ├── o2o-common (公共底座：统一返回类、全局异常拦截、通用常量枚举、JWT解析工具类)
  ├── o2o-api    (远程调用：微服务间 RPC 的 FeignClient 接口定义、跨服务传输 DTO 对象)
  ├── o2o-gateway [8080] (独立运行微服务：负责路由转发、JWT验签、网关全局限流)
- ├── o2o-user-service [8081] (独立运行微服务：负责用户登录/注册、收货地址管理、Redis购物车)
+ ├── o2o-user-service [8081] (独立运行微服务：负责用户登录/注册、收货地址管理)
+ ├── o2o-cart-service [8085] (独立运行微服务：负责购物车管理，Redis Hash 双写 MySQL 持久化)
  ├── o2o-shop-service [8082] (独立运行微服务：负责店铺与商品管理、Redis Geo 附近店铺检索、店铺评价缓存)
  └── o2o-trade-service [8083] (独立运行微服务：负责普通订单、秒杀预扣库存、MQ异步建单削峰)
 ```
@@ -52,7 +53,10 @@ o2o-backend (父工程：负责锁定全项目依赖版本，不写业务代码)
 *   **`o2o-user-service` (用户服务 — 端口 8081)**：
     *   用户注册与密码/验证码登录逻辑。
     *   用户收货地址簿管理（包含地址的 LBS 经纬度坐标数据）。
-    *   基于 **Redis Hash** 结构的高并发购物车暂存与管理。
+*   **`o2o-cart-service` (购物车服务 — 端口 8085)**：
+    *   基于 **Redis Hash (`o2o:cart:{userId}`)** 结构实现高并发购物车暂存与快速增减。
+    *   采用 **Redis + MySQL 双写持久化** 方案：Redis 负责实时读写，MySQL (`o2o_cart_db`) 负责持久化存储，防止缓存失效时数据丢失。
+    *   支持添加、删除、修改数量、查询购物车列表及批量清空已结算商品。
 *   **`o2o-shop-service` (商铺与搜索服务 — 端口 8082)**：
     *   商品基本分类与店铺数据维护。
     *   基于 **Redis Geo** 进行 3 公里内的附近店铺地理位置检索。
@@ -100,7 +104,7 @@ o2o-backend (父工程：负责锁定全项目依赖版本，不写业务代码)
 *   **业务流转**：
     1.  **下单请求**：用户请求发送给 `o2o-trade-service` 创建订单。
     2.  **信息校验 (Feign 调用)**：
-        *   `trade-service` 通过 Feign 远程调用 `user-service` 获取用户购物车中勾选的商品列表及总价。
+        *   `trade-service` 通过 Feign 远程调用 **`cart-service`** 获取用户购物车中勾选的商品列表及总价。
         *   通过 Feign 远程调用 `shop-service` 校验当前商品库存是否充足、商品是否下架。
     3.  **分布式 Header 传递**：在 Feign 调用期间，通过 Feign 请求拦截器 `RequestInterceptor` 将当前线程 `ThreadLocal` 里的 `X-User-Id` 自动复制到 Feign 的 Outgoing Headers 中，确保下游微服务通过 RPC 也能感知当前操作的用户。
-    4.  **事务落库与清理**：`trade-service` 扣减本地库存表、写入订单表，在一个本地声明式事务 (`@Transactional`) 中保证一致性。落库成功后，异步通知 `user-service` 清空已购买的购物车商品。
+    4.  **事务落库与清理**：`trade-service` 扣减本地库存表、写入订单表，在一个本地声明式事务 (`@Transactional`) 中保证一致性。落库成功后，异步通知 **`cart-service`** 清空已购买的购物车商品（同步 Redis 与 MySQL）。

@@ -28,7 +28,8 @@ o2o-project/ (项目根目录)
  │    ├── o2o-common/               # 公共工具包 (统一返回 Result、全局异常捕获)
  │    ├── o2o-api/                  # RPC 远程接口声明及共享 DTO
  │    ├── o2o-gateway/              # 系统统一网关服务 [8080]
- │    ├── o2o-user-service/         # 用户与购物车微服务 [8081]
+ │    ├── o2o-user-service/         # 用户注册/登录、收货地址管理微服务 [8081]
+ │    ├── o2o-cart-service/         # 购物车微服务（Redis Hash 双写 MySQL 持久化）[8085]
  │    ├── o2o-shop-service/         # 店铺与商品搜索微服务 [8082]
  │    └── o2o-trade-service/        # 交易与秒杀下单微服务 [8083]
  └── .gitignore                     # Git 忽略配置
@@ -61,15 +62,16 @@ docker compose up -d
 
 ### 2. 导入数据库表结构
 1. 使用客户端工具（如 Navicat）连接本地 MySQL：`127.0.0.1:3306`（用户名：`root`，密码：`root`）。
-2. 在查询窗口中运行 [o2o-backend_数据库表设计.md](docs/o2o-backend_%E6%95%B0%E6%8D%AE%E5%BA%93%E8%A1%A8%E8%AE%BE%E8%AE%A1.md) 中的建表语句，自动创建 `o2o_user_db`、`o2o_shop_db`、`o2o_trade_db` 库和表。
+2. 在查询窗口中运行 [o2o-backend_数据库表设计.md](docs/o2o-backend_%E6%95%B0%E6%8D%AE%E5%BA%93%E8%A1%A8%E8%AE%BE%E8%AE%A1.md) 中的建表语句，自动创建 `o2o_user_db`、`o2o_cart_db`、`o2o_shop_db`、`o2o_trade_db` 库和表。
 
 ### 3. 运行 Java 微服务
 1. 使用 **IntelliJ IDEA** 打开 `o2o-backend` 目录，让 Maven 自动同步依赖。
 2. 依次启动以下服务：
-   * `GatewayApplication` (网关)
-   * `UserApplication` (用户服务)
-   * `ShopApplication` (店铺服务)
-   * `TradeApplication` (交易服务)
+   * `GatewayApplication` (网关 — 8080)
+   * `UserApplication` (用户服务 — 8081)
+   * `CartApplication` (购物车服务 — 8085)
+   * `ShopApplication` (店铺服务 — 8082)
+   * `TradeApplication` (交易服务 — 8083)
 
 ---
 

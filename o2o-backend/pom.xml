@@ -38,6 +38,7 @@
         <module>o2o-user-service</module>
         <module>o2o-shop-service</module>
         <module>o2o-trade-service</module>
+        <module>o2o-cart-service</module>
     </modules>
 
     <dependencyManagement>
