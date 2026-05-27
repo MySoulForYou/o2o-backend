@@ -1,0 +1,39 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: o2o-gateway
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
+    gateway:
+      discovery:
+        locator:
+          enabled: true # 启用通过服务名发现路由
+          lower-case-service-id: true # 服务名小写
+      routes:
+        # 用户微服务路由
+        - id: user-service-route
+          uri: lb://o2o-user-service
+          predicates:
+            - Path=/api/user/**
+          filters:
+            - StripPrefix=1 # 移除 /api，转发到下游的 /user/...
+
+        # 店铺微服务路由
+        - id: shop-service-route
+          uri: lb://o2o-shop-service
+          predicates:
+            - Path=/api/shop/**
+          filters:
+            - StripPrefix=1
+
+        # 交易微服务路由
+        - id: trade-service-route
+          uri: lb://o2o-trade-service
+          predicates:
+            - Path=/api/trade/**
+          filters:
+            - StripPrefix=1
