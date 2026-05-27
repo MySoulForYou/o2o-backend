@@ -2,6 +2,7 @@ package com.o2o.common;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.lang.NonNull;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 /**
@@ -10,7 +11,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
 public class UserContextInterceptor implements HandlerInterceptor {
 
     @Override
-    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+    public boolean preHandle(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull Object handler) throws Exception {
         // 从请求头获取网关透传的用户 ID
         String userIdStr = request.getHeader("X-User-Id");
         if (userIdStr != null && !userIdStr.isEmpty()) {
@@ -24,8 +25,9 @@ public class UserContextInterceptor implements HandlerInterceptor {
     }
 
     @Override
-    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
+    public void afterCompletion(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull Object handler, Exception ex) throws Exception {
         // 请求结束后必须清理 ThreadLocal，防止 Tomcat 线程池中线程被复用时读取到脏数据，或引起潜在的内存泄露
         UserContext.clear();
     }
 }
+
