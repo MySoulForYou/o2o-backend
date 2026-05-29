@@ -155,4 +155,26 @@ public class UserServiceImpl implements UserService {
         userMapper.updateById(user);
         log.info("用户信息更新成功，userId: {}", userId);
     }
+
+    @Override
+    public java.util.List<com.o2o.api.UserDto> getUserByIds(java.util.List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return new java.util.ArrayList<>();
+        }
+
+        java.util.List<User> users = userMapper.selectBatchIds(ids);
+        java.util.List<com.o2o.api.UserDto> dtoList = new java.util.ArrayList<>();
+
+        for (User user : users) {
+            com.o2o.api.UserDto dto = new com.o2o.api.UserDto();
+            dto.setId(user.getId());
+            dto.setUsername(user.getUsername());
+            dto.setNickname(user.getNickname());
+            dto.setPhone(user.getPhone());
+            dto.setAvatar(user.getAvatar());
+            dtoList.add(dto);
+        }
+
+        return dtoList;
+    }
 }

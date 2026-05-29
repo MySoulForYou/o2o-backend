@@ -72,6 +72,12 @@
             <version>2.5.0</version>
         </dependency>
 
+        <!-- OpenFeign 用于微服务间 RPC 调用 -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+        </dependency>
+
         <!-- Spring Boot Starter Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

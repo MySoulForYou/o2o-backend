@@ -67,4 +67,16 @@ public class UserController {
         userService.updateUserInfo(userId, dto);
         return Result.ok();
     }
+
+    /**
+     * 根据多个用户 ID 批量获取用户信息接口 (提供给其他微服务 RPC 调用，受网关内部透传保护)
+     *
+     * @param ids 用户 ID 列表
+     * @return 统一返回结果 Result，包含用户 DTO 列表
+     */
+    @GetMapping("/list/batch")
+    public Result<java.util.List<com.o2o.api.UserDto>> getUserByIds(@RequestParam("ids") java.util.List<Long> ids) {
+        java.util.List<com.o2o.api.UserDto> userDtoList = userService.getUserByIds(ids);
+        return Result.ok(userDtoList);
+    }
 }

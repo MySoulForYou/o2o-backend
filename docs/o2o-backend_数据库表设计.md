@@ -146,6 +146,7 @@ CREATE TABLE `tb_shop` (
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uni_owner_id` (`owner_id`),                -- 唯一索引：确保一个商家账号仅能持有一家店铺，彻底杜绝并发创建漏洞
   KEY `idx_category` (`category`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='店铺基础表';
 ```

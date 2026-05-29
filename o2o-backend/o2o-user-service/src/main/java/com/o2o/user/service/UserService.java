@@ -40,4 +40,12 @@ public interface UserService {
      * @param dto    修改参数
      */
     void updateUserInfo(Long userId, UserUpdateDto dto);
+
+    /**
+     * 批量根据用户 ID 列表获取用户信息
+     *
+     * @param ids 用户 ID 列表
+     * @return 用户 DTO 列表
+     */
+    java.util.List<com.o2o.api.UserDto> getUserByIds(java.util.List<Long> ids);
 }
