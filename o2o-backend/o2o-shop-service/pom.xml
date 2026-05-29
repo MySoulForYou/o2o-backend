@@ -11,13 +11,20 @@
 
     <artifactId>o2o-shop-service</artifactId>
     <name>o2o-shop-service</name>
-    <description>店铺与商品搜索微服务模块</description>
+    <description>店铺与商品微服务模块（读写一体化逻辑分包版）</description>
 
     <dependencies>
         <!-- 依赖共享远程接口与DTO包 -->
         <dependency>
             <groupId>com.o2o</groupId>
             <artifactId>o2o-api</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+        </dependency>
+
+        <!-- 依赖公共工具与上下文模块 -->
+        <dependency>
+            <groupId>com.o2o</groupId>
+            <artifactId>o2o-common</artifactId>
             <version>1.0.0-SNAPSHOT</version>
         </dependency>
 
@@ -57,6 +64,12 @@
             <groupId>org.redisson</groupId>
             <artifactId>redisson-spring-boot-starter</artifactId>
             <version>3.27.2</version>
+        </dependency>
+        <!-- Springdoc OpenAPI Starter 用于自动生成接口文档 -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>2.5.0</version>
         </dependency>
 
         <!-- Spring Boot Starter Test -->
