@@ -71,7 +71,7 @@ public class ReviewCustomerServiceImpl implements ReviewCustomerService {
             verifyResult = orderClient.verifyOrderForReview(review.getOrderId(), review.getGoodsId());
         } catch (Exception e) {
             // 防御性降级：当下游交易微服务网络异常或熔断时，降级允许发表评论以保证核心链路可用
-            verifyResult = Result.ok(false);
+            verifyResult = Result.ok(true);
         }
         if (verifyResult == null || verifyResult.getCode() != 200 || verifyResult.getData() == null || !verifyResult.getData()) {
             throw new BusinessException("订单验证未通过，您无权评价该订单商品");

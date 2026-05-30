@@ -10,6 +10,7 @@ import com.o2o.shop.mapper.GoodsMapper;
 import com.o2o.shop.mapper.ShopMapper;
 import com.o2o.shop.service.merchant.GoodsMerchantService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +22,9 @@ public class GoodsMerchantServiceImpl implements GoodsMerchantService {
 
     @Autowired
     private ShopMapper shopMapper;
+
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -58,6 +62,9 @@ public class GoodsMerchantServiceImpl implements GoodsMerchantService {
             goods.setStatus(1); // 默认直接上架
         }
         goodsMapper.insert(goods);
+
+        // 主动失效商品列表缓存，防止 C 端读取脏数据
+        stringRedisTemplate.delete("o2o:shop:goods:" + goods.getShopId());
     }
 
     @Override
@@ -90,6 +97,10 @@ public class GoodsMerchantServiceImpl implements GoodsMerchantService {
         // 锁定 shopId 属性，禁止通过修改接口变动商品的店铺归属
         goods.setShopId(null);
         goodsMapper.updateById(goods);
+
+        // 主动失效商品列表及单品详情缓存，防止 C 端读取脏数据
+        stringRedisTemplate.delete("o2o:shop:goods:" + existingGoods.getShopId());
+        stringRedisTemplate.delete("o2o:goods:detail:" + goods.getId());
     }
 
     @Override

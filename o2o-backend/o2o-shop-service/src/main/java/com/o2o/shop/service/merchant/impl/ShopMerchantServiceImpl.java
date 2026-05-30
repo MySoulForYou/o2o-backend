@@ -7,6 +7,7 @@ import com.o2o.shop.entity.Shop;
 import com.o2o.shop.mapper.ShopMapper;
 import com.o2o.shop.service.merchant.ShopMerchantService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,6 +16,9 @@ public class ShopMerchantServiceImpl implements ShopMerchantService {
 
     @Autowired
     private ShopMapper shopMapper;
+
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -71,6 +75,9 @@ public class ShopMerchantServiceImpl implements ShopMerchantService {
         // 禁止通过此接口更新 ownerId 属性，以防所有权漂移
         shop.setOwnerId(null);
         shopMapper.updateById(shop);
+
+        // 主动失效 Redis 店铺详情缓存，防止 C 端读取脏数据
+        stringRedisTemplate.delete("o2o:shop:detail:" + existingShop.getId());
     }
 
     @Override

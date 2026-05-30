@@ -29,4 +29,16 @@ public class GoodsCustomerController {
         List<Goods> goodsList = goodsCustomerService.getGoodsByShopId(shopId);
         return Result.ok(goodsList);
     }
+
+    /**
+     * 根据商品 ID 获取单品详情接口
+     *
+     * @param id 商品ID
+     * @return 商品详情
+     */
+    @GetMapping("/goods/{id}")
+    public Result<Goods> getGoodsById(@PathVariable("id") Long id) {
+        Goods goods = goodsCustomerService.getGoodsById(id);
+        return Result.ok(goods);
+    }
 }
