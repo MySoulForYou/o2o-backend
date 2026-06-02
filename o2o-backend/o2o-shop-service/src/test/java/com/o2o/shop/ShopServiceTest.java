@@ -64,6 +64,12 @@ public class ShopServiceTest {
     @Autowired
     private ReviewMapper reviewMapper;
 
+    @Autowired
+    private org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
+
+    @Autowired
+    private com.o2o.shop.config.ShopGeoPreheatRunner shopGeoPreheatRunner;
+
     private Long testUserId = 9999L;
     private Long otherUserId = 8888L;
     private Shop testShop;
@@ -248,5 +254,55 @@ public class ShopServiceTest {
         // 切换为无店铺的用户，查询应报错
         UserContext.setUserId(otherUserId);
         assertThrows(BusinessException.class, () -> goodsMerchantService.pageMyGoods(1, 10));
+    }
+
+    @Test
+    public void testLbsNearbySearchAndDoubleWrite() throws Exception {
+        // 1. 手动运行预热，确保数据在 Redis 中
+        shopGeoPreheatRunner.run();
+
+        // 2. 验证预热的全局 GEO 中是否包含 testShop 的 ID
+        String allKey = "o2o:shop:geo:all";
+        java.util.List<org.springframework.data.geo.Point> position = stringRedisTemplate.opsForGeo().position(allKey, testShop.getId().toString());
+        assertNotNull(position);
+        assertFalse(position.isEmpty());
+        assertNotNull(position.get(0));
+
+        // 3. 验证附近的店铺检索，定位在稍微偏移一点的位置
+        // testShop 坐标是 (116.1234567, 39.1234567)
+        // 我们从 (116.123, 39.123) 检索附近 10.0 公里的“数码”店铺
+        Page<Shop> nearbyShops = shopCustomerService.pageShopsNearby(116.123, 39.123, 10.0, "数码", 1, 10);
+        assertNotNull(nearbyShops);
+        assertTrue(nearbyShops.getRecords().size() > 0);
+        Shop foundShop = nearbyShops.getRecords().stream()
+                .filter(s -> s.getId().equals(testShop.getId()))
+                .findFirst()
+                .orElse(null);
+        assertNotNull(foundShop);
+        assertNotNull(foundShop.getDistance());
+        assertTrue(foundShop.getDistance() > 0);
+
+        // 4. 测试修改店铺分类时的双写一致性
+        // 将分类修改为“美食”
+        testShop.setCategory("美食");
+        shopMerchantService.updateShop(testShop);
+
+        // 验证旧分类 GEO key 中已不存在
+        java.util.List<org.springframework.data.geo.Point> oldCatPos = stringRedisTemplate.opsForGeo().position("o2o:shop:geo:category:数码", testShop.getId().toString());
+        assertTrue(oldCatPos == null || oldCatPos.isEmpty() || oldCatPos.get(0) == null);
+
+        // 验证新分类 GEO key 中存在
+        java.util.List<org.springframework.data.geo.Point> newCatPos = stringRedisTemplate.opsForGeo().position("o2o:shop:geo:category:美食", testShop.getId().toString());
+        assertNotNull(newCatPos);
+        assertFalse(newCatPos.isEmpty());
+        assertNotNull(newCatPos.get(0));
+
+        // 5. 测试关店下架时的双写一致性
+        testShop.setStatus(0); // 关店
+        shopMerchantService.updateShop(testShop);
+
+        // 验证全局 GEO 和分类 GEO 中都已被移除
+        java.util.List<org.springframework.data.geo.Point> allPosAfterClose = stringRedisTemplate.opsForGeo().position(allKey, testShop.getId().toString());
+        assertTrue(allPosAfterClose == null || allPosAfterClose.isEmpty() || allPosAfterClose.get(0) == null);
     }
 }

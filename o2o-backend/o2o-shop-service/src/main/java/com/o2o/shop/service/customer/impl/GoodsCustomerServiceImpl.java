@@ -39,8 +39,8 @@ public class GoodsCustomerServiceImpl implements GoodsCustomerService {
                 shopId,
                 Shop.class,
                 shopMapper::selectById, // 返回 null 以让 CacheClient 缓存空值防御穿透
-                30L,
-                TimeUnit.MINUTES,
+                12L,
+                TimeUnit.HOURS,
                 "o2o:lock:shop:rebuild:"
         );
         if (shop == null) {
@@ -96,8 +96,8 @@ public class GoodsCustomerServiceImpl implements GoodsCustomerService {
                 goods.getShopId(),
                 Shop.class,
                 shopMapper::selectById, // 数据库回调：仅查询店铺，返回 null 以让 CacheClient 缓存空值
-                30L,
-                TimeUnit.MINUTES,
+                12L,
+                TimeUnit.HOURS,
                 "o2o:lock:shop:rebuild:"
         );
 

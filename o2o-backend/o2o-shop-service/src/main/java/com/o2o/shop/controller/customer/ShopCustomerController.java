@@ -44,4 +44,27 @@ public class ShopCustomerController {
         Page<Shop> shopPage = shopCustomerService.pageShops(category, status, page, pageSize);
         return Result.ok(shopPage);
     }
+
+    /**
+     * 根据地理位置 (LBS) 分页查询附近店铺接口
+     *
+     * @param longitude 经度
+     * @param latitude 纬度
+     * @param radius 搜索半径 (单位：公里，默认 3.0)
+     * @param category 分类过滤 (可选)
+     * @param page 页码 (默认 1)
+     * @param pageSize 每页显示条数 (默认 10)
+     * @return 附近店铺分页结果 (按距离升序)
+     */
+    @GetMapping("/nearby")
+    public Result<Page<Shop>> pageShopsNearby(
+            @RequestParam("longitude") Double longitude,
+            @RequestParam("latitude") Double latitude,
+            @RequestParam(value = "radius", defaultValue = "3.0") Double radius,
+            @RequestParam(value = "category", required = false) String category,
+            @RequestParam(value = "page", defaultValue = "1") Integer page,
+            @RequestParam(value = "pageSize", defaultValue = "10") Integer pageSize) {
+        Page<Shop> shopPage = shopCustomerService.pageShopsNearby(longitude, latitude, radius, category, page, pageSize);
+        return Result.ok(shopPage);
+    }
 }

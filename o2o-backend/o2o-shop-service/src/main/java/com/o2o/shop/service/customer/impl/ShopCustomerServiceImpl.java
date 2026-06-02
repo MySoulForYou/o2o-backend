@@ -8,8 +8,17 @@ import com.o2o.shop.entity.Shop;
 import com.o2o.shop.mapper.ShopMapper;
 import com.o2o.shop.service.customer.ShopCustomerService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.geo.Distance;
+import org.springframework.data.geo.GeoResult;
+import org.springframework.data.geo.GeoResults;
+import org.springframework.data.geo.Metrics;
+import org.springframework.data.redis.connection.RedisGeoCommands;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.domain.geo.GeoReference;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -19,6 +28,8 @@ public class ShopCustomerServiceImpl implements ShopCustomerService {
     private ShopMapper shopMapper;
     @Autowired
     private CacheClient cacheClient;
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
 
     @Override
     public Shop getShopById(Long id) {
@@ -55,5 +66,72 @@ public class ShopCustomerServiceImpl implements ShopCustomerService {
         queryWrapper.orderByDesc(Shop::getCreateTime);
 
         return shopMapper.selectPage(shopPage, queryWrapper);
+    }
+
+    @Override
+    public Page<Shop> pageShopsNearby(Double longitude, Double latitude, Double radius, String category, Integer page, Integer pageSize) {
+        // 1. 确定定位 Key (有无分类过滤)
+        String key;
+        if (category != null && !category.trim().isEmpty()) {
+            key = "o2o:shop:geo:category:" + category.trim();
+        } else {
+            key = "o2o:shop:geo:all";
+        }
+
+        // 2. 计算最大拉取数量 (limit = page * pageSize)
+        int maxLimit = page * pageSize;
+
+        // 3. 构造 GeoSearch 查询参数 (包含距离，距离由近到远升序，设置数量限制)
+        RedisGeoCommands.GeoSearchCommandArgs args = RedisGeoCommands.GeoSearchCommandArgs.newGeoSearchArgs()
+                .includeDistance()
+                .sortAscending()
+                .limit(maxLimit);
+
+        // 4. 执行 Redis GEO 检索
+        GeoResults<RedisGeoCommands.GeoLocation<String>> results = stringRedisTemplate.opsForGeo().search(
+                key,
+                GeoReference.fromCoordinate(longitude, latitude),
+                new Distance(radius, Metrics.KILOMETERS),
+                args
+        );
+
+        if (results == null) {
+            return new Page<>(page, pageSize, 0);
+        }
+
+        List<GeoResult<RedisGeoCommands.GeoLocation<String>>> content = results.getContent();
+        int total = content.size();
+
+        // 5. 内存截取分页
+        int start = (page - 1) * pageSize;
+        if (start >= total) {
+            return new Page<>(page, pageSize, total);
+        }
+        int end = Math.min(page * pageSize, total);
+
+        List<GeoResult<RedisGeoCommands.GeoLocation<String>>> subList = content.subList(start, end);
+
+        // 6. 装配店铺详情，回填动态距离
+        List<Shop> shops = new ArrayList<>();
+        for (GeoResult<RedisGeoCommands.GeoLocation<String>> item : subList) {
+            String shopIdStr = item.getContent().getName();
+            Long shopId = Long.valueOf(shopIdStr);
+            // distance.getValue() 拿到的是 KILOMETERS, 乘以 1000 转换为米
+            double distanceInMeters = item.getDistance().getValue() * 1000.0;
+
+            try {
+                Shop shop = getShopById(shopId);
+                if (shop != null) {
+                    shop.setDistance(distanceInMeters);
+                    shops.add(shop);
+                }
+            } catch (Exception e) {
+                // 容错：防止某个店铺详情获取异常导致整个列表报错崩溃
+            }
+        }
+
+        Page<Shop> shopPage = new Page<>(page, pageSize, total);
+        shopPage.setRecords(shops);
+        return shopPage;
     }
 }

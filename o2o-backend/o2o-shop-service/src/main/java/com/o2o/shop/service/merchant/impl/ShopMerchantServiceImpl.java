@@ -6,11 +6,16 @@ import com.o2o.common.UserContext;
 import com.o2o.shop.entity.Shop;
 import com.o2o.shop.mapper.ShopMapper;
 import com.o2o.shop.service.merchant.ShopMerchantService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.geo.Point;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+@Slf4j
 @Service
 public class ShopMerchantServiceImpl implements ShopMerchantService {
 
@@ -47,6 +52,18 @@ public class ShopMerchantServiceImpl implements ShopMerchantService {
             // 3. 数据库底层唯一约束兜底，防范高并发重试/并发击穿绕过 selectCount 校验导致的脏数据
             throw new BusinessException(400, "当前商家账号已绑定过店铺，请勿重复创建");
         }
+
+        // 4. 注册事务同步：事务提交后写入 Redis GEO
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    syncRedisGeo(null, shop);
+                }
+            });
+        } else {
+            syncRedisGeo(null, shop);
+        }
     }
 
     @Override
@@ -76,8 +93,22 @@ public class ShopMerchantServiceImpl implements ShopMerchantService {
         shop.setOwnerId(null);
         shopMapper.updateById(shop);
 
-        // 主动失效 Redis 店铺详情缓存，防止 C 端读取脏数据
-        stringRedisTemplate.delete("o2o:shop:detail:" + existingShop.getId());
+        // 获取数据库更新后的完整店铺数据
+        Shop finalShop = shopMapper.selectById(shop.getId());
+
+        // 注册事务同步：事务提交后同步 GEO 并删除详情缓存
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    syncRedisGeo(existingShop, finalShop);
+                    stringRedisTemplate.delete("o2o:shop:detail:" + finalShop.getId());
+                }
+            });
+        } else {
+            syncRedisGeo(existingShop, finalShop);
+            stringRedisTemplate.delete("o2o:shop:detail:" + finalShop.getId());
+        }
     }
 
     @Override
@@ -94,5 +125,68 @@ public class ShopMerchantServiceImpl implements ShopMerchantService {
             throw new BusinessException(404, "当前商家账号未绑定任何店铺");
         }
         return shop;
+    }
+
+    /**
+     * 事务提交后的 Redis GEO 双写同步辅助逻辑
+     */
+    private void syncRedisGeo(Shop oldShop, Shop newShop) {
+        try {
+            String allKey = "o2o:shop:geo:all";
+            String shopIdStr = newShop.getId().toString();
+
+            // 1. 如果新状态是关闭/休息（status = 0）
+            if (newShop.getStatus() == 0) {
+                stringRedisTemplate.opsForGeo().remove(allKey, shopIdStr);
+                if (newShop.getCategory() != null) {
+                    stringRedisTemplate.opsForGeo().remove("o2o:shop:geo:category:" + newShop.getCategory(), shopIdStr);
+                }
+                if (oldShop != null && oldShop.getCategory() != null) {
+                    stringRedisTemplate.opsForGeo().remove("o2o:shop:geo:category:" + oldShop.getCategory(), shopIdStr);
+                }
+                log.info("[GEO Sync] 店铺下架/休息，已从 GEO 移除. ShopId: {}", shopIdStr);
+                return;
+            }
+
+            // 2. 如果新状态是营业（status = 1）
+            if (newShop.getStatus() == 1) {
+                if (newShop.getLongitude() == null || newShop.getLatitude() == null) {
+                    return;
+                }
+                Point newPoint = new Point(newShop.getLongitude().doubleValue(), newShop.getLatitude().doubleValue());
+
+                boolean isNew = oldShop == null;
+                boolean statusChanged = oldShop != null && oldShop.getStatus() == 0;
+                boolean locationChanged = oldShop != null && (
+                        oldShop.getLongitude().compareTo(newShop.getLongitude()) != 0 ||
+                        oldShop.getLatitude().compareTo(newShop.getLatitude()) != 0
+                );
+
+                if (isNew || statusChanged || locationChanged) {
+                    stringRedisTemplate.opsForGeo().add(allKey, newPoint, shopIdStr);
+                }
+
+                // 处理分类 GEO Key
+                String newCategoryKey = "o2o:shop:geo:category:" + newShop.getCategory();
+                if (isNew) {
+                    stringRedisTemplate.opsForGeo().add(newCategoryKey, newPoint, shopIdStr);
+                } else {
+                    String oldCategoryKey = "o2o:shop:geo:category:" + oldShop.getCategory();
+                    boolean categoryChanged = !oldShop.getCategory().equals(newShop.getCategory());
+
+                    if (categoryChanged) {
+                        // 分类变了，从旧分类移除，加入新分类
+                        stringRedisTemplate.opsForGeo().remove(oldCategoryKey, shopIdStr);
+                        stringRedisTemplate.opsForGeo().add(newCategoryKey, newPoint, shopIdStr);
+                    } else if (statusChanged || locationChanged) {
+                        // 分类没变，状态或位置变了，更新新分类
+                        stringRedisTemplate.opsForGeo().add(newCategoryKey, newPoint, shopIdStr);
+                    }
+                }
+                log.info("[GEO Sync] 店铺上架/营业，GEO 同步成功. ShopId: {}", shopIdStr);
+            }
+        } catch (Exception e) {
+            log.error("[GEO Sync] GEO 缓存同步失败，ShopId: {}", newShop.getId(), e);
+        }
     }
 }
