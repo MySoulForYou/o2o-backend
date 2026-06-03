@@ -278,3 +278,36 @@ CREATE TABLE `tb_review` (
       "positive_rate": "97.4"     // 好评率百分比
     }
     ```
+
+---
+
+### 3. 购物车微服务数据库 (`o2o_cart_db`)
+
+```sql
+CREATE DATABASE IF NOT EXISTS `o2o_cart_db` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `o2o_cart_db`;
+```
+
+#### 3.0 数据库索引设计与作用说明
+为保障高并发下的数据一致性与幂等性，本项目在购物车库中配置了以下索引：
+*   **联合唯一索引 `uni_user_goods` (`user_id`, `goods_id`)** on `tb_cart`：保证单个用户对某件商品在数据库中只有唯一的一条购物车记录，防止并发加购产生多条重复数据，也是高并发同步双写的基础物理屏障。
+*   **单列普通检索索引 `idx_user_id` (`user_id`)** on `tb_cart`：在缓存失效或加载购物车列表时，加快根据用户 ID 查询购物车全部商品记录的速度。
+
+#### 3.1 购物车商品关联表 (`tb_cart`)
+保存用户购物车的加购商品及对应数量。
+
+```sql
+DROP TABLE IF EXISTS `tb_cart`;
+CREATE TABLE `tb_cart` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '购物车ID，自增主键',
+  `user_id` bigint NOT NULL COMMENT '用户ID',
+  `goods_id` bigint NOT NULL COMMENT '商品ID',
+  `quantity` int NOT NULL DEFAULT '1' COMMENT '商品数量',
+  `selected` tinyint NOT NULL DEFAULT '1' COMMENT '是否选中：0-未选中，1-选中',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uni_user_goods` (`user_id`, `goods_id`),
+  KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='购物车商品关联表';
+```

@@ -19,4 +19,12 @@ public interface GoodsCustomerService {
      * @return 商品详情
      */
     Goods getGoodsById(Long id);
+
+    /**
+     * 根据商品 ID 列表批量查询商品详情
+     *
+     * @param ids 商品 ID 列表
+     * @return 商品列表
+     */
+    List<Goods> getGoodsByIds(List<Long> ids);
 }

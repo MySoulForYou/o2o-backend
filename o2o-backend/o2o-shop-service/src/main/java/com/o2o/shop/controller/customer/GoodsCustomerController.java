@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -40,5 +41,17 @@ public class GoodsCustomerController {
     public Result<Goods> getGoodsById(@PathVariable("id") Long id) {
         Goods goods = goodsCustomerService.getGoodsById(id);
         return Result.ok(goods);
+    }
+
+    /**
+     * 根据商品 ID 列表批量获取商品详情接口
+     *
+     * @param ids 商品 ID 列表
+     * @return 商品列表
+     */
+    @GetMapping("/goods/batch")
+    public Result<List<Goods>> getGoodsByIds(@RequestParam("ids") List<Long> ids) {
+        List<Goods> goodsList = goodsCustomerService.getGoodsByIds(ids);
+        return Result.ok(goodsList);
     }
 }

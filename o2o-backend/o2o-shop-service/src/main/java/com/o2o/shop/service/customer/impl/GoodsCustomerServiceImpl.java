@@ -107,4 +107,12 @@ public class GoodsCustomerServiceImpl implements GoodsCustomerService {
 
         return goods;
     }
+
+    @Override
+    public List<Goods> getGoodsByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        return goodsMapper.selectBatchIds(ids);
+    }
 }
