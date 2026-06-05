@@ -2,6 +2,7 @@ package com.o2o.shop.service.customer.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.o2o.api.GoodsDeductStockDto;
 import com.o2o.common.BusinessException;
 import com.o2o.shop.cache.CacheClient;
 import com.o2o.shop.entity.Goods;
@@ -114,5 +115,32 @@ public class GoodsCustomerServiceImpl implements GoodsCustomerService {
             return java.util.Collections.emptyList();
         }
         return goodsMapper.selectBatchIds(ids);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
+    public boolean deductStock(List<GoodsDeductStockDto> deductList) {
+        if (deductList == null || deductList.isEmpty()) {
+            return false;
+        }
+        for (GoodsDeductStockDto dto : deductList) {
+            Long goodsId = dto.getGoodsId();
+            Integer quantity = dto.getQuantity();
+            if (goodsId == null || quantity == null || quantity <= 0) {
+                throw new BusinessException("扣减库存参数错误");
+            }
+            // 乐观锁扣减物理库存
+            int updated = goodsMapper.deductStock(goodsId, quantity);
+            if (updated <= 0) {
+                throw new BusinessException("库存不足，扣减物理库存失败，商品 ID: " + goodsId);
+            }
+            // 清理缓存
+            try {
+                cacheClient.delete("o2o:goods:detail:" + goodsId);
+            } catch (Exception e) {
+                // Ignore cache deletion error to avoid breaking database transaction
+            }
+        }
+        return true;
     }
 }

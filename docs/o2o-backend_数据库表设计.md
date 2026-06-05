@@ -311,3 +311,87 @@ CREATE TABLE `tb_cart` (
   KEY `idx_user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='购物车商品关联表';
 ```
+
+---
+
+### 4. 交易与秒杀微服务数据库 (`o2o_trade_db`)
+
+```sql
+CREATE DATABASE IF NOT EXISTS `o2o_trade_db` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `o2o_trade_db`;
+```
+
+#### 4.0 数据库索引设计与作用说明
+为保证订单检索与交易一致性，本项目在交易库配置了以下索引：
+*   **唯一索引 `uni_order_no` (`order_no`)** on `tb_order`：确保订单号的全局唯一性，防止重复提交或扣款。
+*   **普通索引 `idx_user_id` (`user_id`)** on `tb_order`：加快用户个人中心历史订单列表的查询与加载。
+*   **普通索引 `idx_shop_id` (`shop_id`)** on `tb_order`：支持商家后台按店铺维度查询和处理订单。
+*   **普通索引 `idx_order_id` (`order_id`)** on `tb_order_item`：加速根据订单 ID 批量拉取订单商品明细。
+
+#### 4.1 订单主表 (`tb_order`)
+保存订单的基本结算金额、状态及收货地址。
+
+```sql
+DROP TABLE IF EXISTS `tb_order`;
+CREATE TABLE `tb_order` (
+  `id` bigint NOT NULL COMMENT '订单ID，分布式主键 (Snowflake)',
+  `order_no` varchar(64) NOT NULL COMMENT '订单号，唯一标识',
+  `user_id` bigint NOT NULL COMMENT '下单用户ID',
+  `shop_id` bigint NOT NULL COMMENT '店铺ID',
+  `total_amount` decimal(10,2) NOT NULL COMMENT '订单总金额',
+  `actual_amount` decimal(10,2) NOT NULL COMMENT '实付金额',
+  `status` tinyint NOT NULL DEFAULT '0' COMMENT '订单状态：0-待付款，1-已付款/待接单，2-配送中/待收货，3-已完成，4-已取消，5-已退款',
+  `receiver_name` varchar(50) DEFAULT NULL COMMENT '收货人姓名',
+  `receiver_phone` varchar(20) DEFAULT NULL COMMENT '收货人电话',
+  `receiver_address` varchar(255) DEFAULT NULL COMMENT '详细地址',
+  `order_type` tinyint NOT NULL DEFAULT '0' COMMENT '订单类型：0-普通订单，1-秒杀订单',
+  `pay_time` datetime DEFAULT NULL COMMENT '支付时间',
+  `cancel_time` datetime DEFAULT NULL COMMENT '取消时间',
+  `complete_time` datetime DEFAULT NULL COMMENT '完成时间',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uni_order_no` (`order_no`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_shop_id` (`shop_id`),
+  KEY `idx_create_time` (`create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='订单主表';
+```
+
+#### 4.2 订单商品明细表 (`tb_order_item`)
+保存订单中购买的具体商品详情及当时购买价格。
+
+```sql
+DROP TABLE IF EXISTS `tb_order_item`;
+CREATE TABLE `tb_order_item` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '明细ID，自增主键',
+  `order_id` bigint NOT NULL COMMENT '关联的订单ID',
+  `goods_id` bigint NOT NULL COMMENT '商品ID',
+  `goods_name` varchar(100) NOT NULL COMMENT '商品名称',
+  `price` decimal(10,2) NOT NULL COMMENT '购买单价 (实际下单时的单价)',
+  `quantity` int NOT NULL DEFAULT '1' COMMENT '购买数量',
+  `image` varchar(255) DEFAULT NULL COMMENT '商品主图',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_order_id` (`order_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='订单商品明细表';
+```
+
+#### 4.3 秒杀代金券配置表 (`tb_seckill_voucher`)
+保存商家的秒杀优惠代金券库存与有效抢购时间。
+
+```sql
+DROP TABLE IF EXISTS `tb_seckill_voucher`;
+CREATE TABLE `tb_seckill_voucher` (
+  `id` bigint NOT NULL COMMENT '秒杀券ID，对应 tb_goods 中的 id',
+  `voucher_price` decimal(10,2) NOT NULL COMMENT '秒杀抢购优惠价 (如 1.00元)',
+  `stock` int NOT NULL DEFAULT '0' COMMENT '秒杀物理库存',
+  `start_time` datetime NOT NULL COMMENT '秒杀活动开始时间',
+  `end_time` datetime NOT NULL COMMENT '秒杀活动结束时间',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='秒杀代金券配置表';
+```
+

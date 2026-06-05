@@ -1,5 +1,6 @@
 package com.o2o.shop.service.customer;
 
+import com.o2o.api.GoodsDeductStockDto;
 import com.o2o.shop.entity.Goods;
 import java.util.List;
 
@@ -27,4 +28,12 @@ public interface GoodsCustomerService {
      * @return 商品列表
      */
     List<Goods> getGoodsByIds(List<Long> ids);
+
+    /**
+     * 批量扣减商品物理库存
+     *
+     * @param deductList 扣减库存列表
+     * @return 是否扣减成功
+     */
+    boolean deductStock(List<GoodsDeductStockDto> deductList);
 }

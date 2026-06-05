@@ -282,4 +282,13 @@ public class CacheClient {
         }
         return dbFallback.apply(id);
     }
+
+    /**
+     * 删除指定缓存 Key
+     *
+     * @param key 缓存键
+     */
+    public void delete(String key) {
+        stringRedisTemplate.delete(key);
+    }
 }

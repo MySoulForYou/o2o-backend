@@ -1,14 +1,11 @@
 package com.o2o.shop.controller.customer;
 
+import com.o2o.api.GoodsDeductStockDto;
 import com.o2o.common.Result;
 import com.o2o.shop.entity.Goods;
 import com.o2o.shop.service.customer.GoodsCustomerService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -53,5 +50,17 @@ public class GoodsCustomerController {
     public Result<List<Goods>> getGoodsByIds(@RequestParam("ids") List<Long> ids) {
         List<Goods> goodsList = goodsCustomerService.getGoodsByIds(ids);
         return Result.ok(goodsList);
+    }
+
+    /**
+     * 批量扣减商品物理库存
+     *
+     * @param deductList 扣减库存列表
+     * @return 是否成功
+     */
+    @PostMapping("/goods/deduct-stock")
+    public Result<Boolean> deductStock(@RequestBody List<GoodsDeductStockDto> deductList) {
+        boolean success = goodsCustomerService.deductStock(deductList);
+        return Result.ok(success);
     }
 }

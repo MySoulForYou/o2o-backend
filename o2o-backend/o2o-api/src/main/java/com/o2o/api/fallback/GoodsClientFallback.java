@@ -1,6 +1,7 @@
 package com.o2o.api.fallback;
 
 import com.o2o.api.GoodsClient;
+import com.o2o.api.GoodsDeductStockDto;
 import com.o2o.api.GoodsDto;
 import com.o2o.common.Result;
 import org.slf4j.Logger;
@@ -22,5 +23,11 @@ public class GoodsClientFallback implements GoodsClient {
     public Result<List<GoodsDto>> getGoodsByIds(List<Long> ids) {
         log.warn("[Fallback] 店铺商品微服务异常或超时，批量获取商品信息自动降级为空列表。ids: {}", ids);
         return Result.ok(Collections.emptyList());
+    }
+
+    @Override
+    public Result<Boolean> deductStock(List<GoodsDeductStockDto> deductList) {
+        log.warn("[Fallback] 店铺商品微服务异常或超时，批量扣减库存失败。deductList: {}", deductList);
+        return Result.ok(false);
     }
 }
